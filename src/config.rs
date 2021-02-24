@@ -37,7 +37,7 @@ lazy_static! {
 pub fn ip() -> (u8, u8, u8, u8) {
     CONFIG.ip()
 }
-pub fn port() -> i64 {
+pub fn port() -> u64 {
     CONFIG.port()
 }
 // pub fn ssl_enabled() -> bool {
@@ -82,7 +82,7 @@ fn create_new_config_file(config: &Config) -> Result<(), String> {
 #[derive(Debug)]
 pub struct Config {
     ip: (u8, u8, u8, u8),
-    port: i64,
+    port: u64,
     ssl_enabled: bool,
     ssl_key: String,
     ssl_cert: String,
@@ -103,15 +103,14 @@ impl Config {
             Err(e) => return Err(format!("Cannot parse config file --- {:?}", e))
         };
 
-        let ip = Self::parse_ip(&config)?;
         let port = Self::parse_port(&config)?;
+        let ip = Self::parse_ip(&config)?;
         let ssl_enabled = Self::parse_ssl_enabled(&config)?;
         let ssl_key = Self::parse_ssl_key(&config)?;
         let ssl_cert = Self::parse_ssl_cert(&config)?;
         let image_path = Self::parse_img_path(&config)?;
         let jpg_quality = Self::parse_jpg_quality(&config)?;
         let base_address = Self::parse_base_address(&config)?;
-
 
         Ok(Config {
             ip,
@@ -165,17 +164,10 @@ impl Config {
         Err("Cannot parse IP from Configuration file.".to_owned())
     }
 
-    fn parse_port(e: &Map<String, Value>) -> Result<i64, String> {
+    fn parse_port(e: &Map<String, Value>) -> Result<u64, String> {
         if let Some(v) = e.get("port") {
-            if let Some(p) = v.as_str() {
-                let i = match p.parse::<i64>() {
-                    Ok(p_i) => p_i,
-                    Err(e) => {
-                        log::error!("{}", e);
-                        return Err("Cannot parse Port in Configuration file.".to_owned())
-                    }
-                };
-                return Ok(i)
+            if let Some(p) = v.as_u64() {
+                return Ok(p)
             }
         }
         Err("Cannot parse Port in Configuration file.".to_owned())
@@ -240,7 +232,7 @@ impl Config {
             }
         }
 
-        Err("Cannot parse Port in Configuration file.".to_owned())
+        Err("Cannot parse JPG Quality in Configuration file.".to_owned())
     }
 
     fn parse_base_address(e: &Map<String, Value>) -> Result<String, String> {
@@ -258,7 +250,7 @@ impl Config {
     pub fn ip(&self) -> (u8, u8, u8, u8) {
         self.ip
     }
-    pub fn port(&self) -> i64 {
+    pub fn port(&self) -> u64 {
         self.port
     }
     // pub fn ssl_enabled(&self) -> bool {
@@ -298,7 +290,8 @@ impl Config {
         \"key\": \"{}\",
         \"cert\": \"{}\"
     }},
-    \"image_path\": \"{}\"
-}}", ip_str, self.port, self.ssl_enabled, self.ssl_key, self.ssl_cert, self.image_path)
+    \"image_path\": \"{}\",
+    \"jpg_quality\": {}
+}}", ip_str, self.port, self.ssl_enabled, self.ssl_key, self.ssl_cert, self.image_path, self.jpg_quality)
     }
 }

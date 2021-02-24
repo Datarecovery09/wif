@@ -11,5 +11,7 @@
         "key": "",
         "cert": ""
     },
-    "image_path": "./files"
+    "image_path": "./files",
+    "jpg_quality": 80,
+    "base_address": "http://localhost"
 }

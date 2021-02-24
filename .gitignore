@@ -11,3 +11,4 @@
 
 # Test images etc
 /files/
+# **/config.json
