@@ -6,12 +6,10 @@
         1
     ],
     "port": 8000,
-    "base_address": "http://localhost",
     "ssl": {
         "enabled": false,
         "key": "",
         "cert": ""
     },
-    "image_path": "./files",
-    "jpg_quality": 80
+    "image_path": "./files"
 }

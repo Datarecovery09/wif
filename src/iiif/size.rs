@@ -1,7 +1,7 @@
 use std::str::FromStr;
-use image::{GenericImageView, imageops::{self}};
+use image::{DynamicImage, GenericImageView, imageops::{self}};
 
-use super::{img_container::ImgContainer, parsing_error::{ErrorReturnType}};
+use crate::wif_error::WifError;
 
 #[derive(Debug)]
 pub enum EPicSize {
@@ -13,7 +13,7 @@ pub enum EPicSize {
 }
 
 impl FromStr for EPicSize {
-    type Err = ErrorReturnType;
+    type Err = WifError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "max" | "^max" => return Ok(EPicSize::Max),
@@ -61,7 +61,7 @@ impl FromStr for EPicSize {
             return Ok(EPicSize::Height { h, upscale })
         }
 
-        Err(ErrorReturnType::BadRequest("Cannot parse parameter size".to_owned()))
+        Err(WifError::bad_request("Cannot parse parameter size".to_owned()))
     }
 }
 
@@ -116,61 +116,61 @@ impl EPicSize {
 
 }
 
-pub fn mutate_image_size(size: &EPicSize, img: &mut ImgContainer) -> Result<(), ErrorReturnType> {
+pub fn mutate_image_size(size: &EPicSize, img: &mut DynamicImage) -> Result<(), WifError> {
     match size {
         EPicSize::Max => (),
         EPicSize::Height {h, upscale} => {
-            let mut nwidth = img.img.width();
+            let mut nwidth = img.width();
 
-            if h.round() as u32 > img.img.height() {
+            if h.round() as u32 > img.height() {
                 if *upscale {
-                    let multi = h / img.img.height() as f32;
+                    let multi = h / img.height() as f32;
                     nwidth = (nwidth as f32 * multi).round() as u32;
                 } else {
-                    return Err(ErrorReturnType::BadRequest("Size not allowed".to_owned()))
+                    return Err(WifError::bad_request("Size not allowed".to_owned()))
                 }
             }
 
-            img.img = image::DynamicImage::resize(&mut img.img, nwidth, h.round() as u32, image::imageops::FilterType::CatmullRom);
+            *img = image::DynamicImage::resize(img, nwidth, h.round() as u32, image::imageops::FilterType::CatmullRom);
         },
         EPicSize::Width {w, upscale} => {
-            let mut nheight = img.img.height();
+            let mut nheight = img.height();
 
-            if w.round() as u32 > img.img.width() {
+            if w.round() as u32 > img.width() {
                 if *upscale {
-                    let multi = w / img.img.width() as f32;
+                    let multi = w / img.width() as f32;
                     nheight = (nheight as f32 * multi).round() as u32;
                 } else {
-                    return Err(ErrorReturnType::BadRequest("Size not allowed".to_owned()))
+                    return Err(WifError::bad_request("Size not allowed".to_owned()))
                 }
             }
 
-            img.img = image::DynamicImage::resize(&mut img.img, w.round() as u32, nheight, image::imageops::FilterType::CatmullRom);
+            *img = image::DynamicImage::resize(img, w.round() as u32, nheight, image::imageops::FilterType::CatmullRom);
         },
         EPicSize::Perc {n, upscale} => {
             if *n >= 100.0 && !upscale {
-                return Err(ErrorReturnType::BadRequest("Size not allowed".to_owned()))
+                return Err(WifError::bad_request("Size not allowed".to_owned()))
             }
 
-            let m_width = (img.img.width() as f32 * *n * 0.01).round() as u32;
-            let m_height = (img.img.height() as f32 * *n * 0.01).round() as u32;
-            img.img = img.img.resize(m_width, m_height, imageops::FilterType::CatmullRom);
+            let m_width = (img.width() as f32 * *n * 0.01).round() as u32;
+            let m_height = (img.height() as f32 * *n * 0.01).round() as u32;
+            *img = img.resize(m_width, m_height, imageops::FilterType::CatmullRom);
         },
         EPicSize::WidthHeight {w, h, forced, upscale} => {
-            let n_w = if *w > img.img.width() as f32 && !upscale {
-                return Err(ErrorReturnType::BadRequest("This size is not allowed".to_owned()))
+            let n_w = if *w > img.width() as f32 && !upscale {
+                return Err(WifError::bad_request("This size is not allowed".to_owned()))
             } else {
                 w.round() as u32
             };
-            let n_h = if *h > img.img.height() as f32 && !upscale {
-                return Err(ErrorReturnType::BadRequest("This size is not allowed".to_owned()))
+            let n_h = if *h > img.height() as f32 && !upscale {
+                return Err(WifError::bad_request("This size is not allowed".to_owned()))
             } else {
                 h.round() as u32
             };
             if *forced {
-                img.img = image::DynamicImage::resize(&mut img.img, n_w, n_h, image::imageops::FilterType::CatmullRom);
+                *img = image::DynamicImage::resize(img, n_w, n_h, image::imageops::FilterType::CatmullRom);
             } else {
-                img.img = image::DynamicImage::resize_exact(&mut img.img, n_w, n_h, image::imageops::FilterType::CatmullRom);
+                *img = image::DynamicImage::resize_exact(img, n_w, n_h, image::imageops::FilterType::CatmullRom);
             }
         }
     }

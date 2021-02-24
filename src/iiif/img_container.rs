@@ -1,9 +1,31 @@
 extern crate image;
-use image::{DynamicImage, ImageOutputFormat};
+use image::{DynamicImage, ImageFormat, ImageOutputFormat};
+use warp::{Rejection, reject::{custom}};
 use std::path::Path;
+use std::str::FromStr;
 
-use super::parsing_error::ErrorReturnType;
+use crate::config;
 
+use super::parsing_error::{ErrorReturnType};
+
+
+#[derive(Debug)]
+pub struct ImgInfo {
+    filepath: String,
+}
+impl FromStr for ImgInfo {
+    type Err = Rejection;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let path = format!("{}/{}", config::image_path(), s);
+        if Path::new(&path).exists() {
+            Ok(Self {
+                filepath: path.to_owned()
+            })
+        } else {
+            Err(custom(ErrorReturnType::BadRequest("new try...".to_owned())))
+        }
+    }
+}
 
 pub struct ImgContainer {
     pub img: DynamicImage

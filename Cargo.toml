@@ -1,24 +1,28 @@
 [package]
-name = "warp-iiif"
-version = "0.1.0"
-authors = ["JW <Weberju5@gmail.com>"]
+name = "wif"
+version = "0.1.1"
+authors = ["Julius <Weberju5@gmail.com>"]
 edition = "2018"
 
-[dependencies]
-warp = { version = "0.3.0", features = ["tls", "compression"] }
-tokio = { version = "1.2.0", features = ["full"] }
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-log = "0.4"
-pretty_env_logger = "0.4"
+[dependencies]
+tide = "0.16.0"
+tide-compress = "0.9.0"
+async-std = { version = "1.8.0", features = ["attributes"] }
 
 serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0.59"
+
 image = "0.23.13"
+png = "0.16.8"
+jpeg-decoder = "0.1.22"
+
 percent-encoding = "2.1.0"
 lazy_static = "1.4.0"
 
-# [profile.dev.package.image]
-# opt-level = 2
+log = "0.4"
+pretty_env_logger = "0.4"
 
 [profile.release]
 lto = "fat"

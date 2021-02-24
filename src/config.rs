@@ -1,11 +1,14 @@
-use std::{fs, io::Write, net::{Ipv4Addr, SocketAddrV4}};
+use std::{fs, io::Write};
 use serde_json::{Map, Value};
+use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref CONFIG: Config = {
-        match Config::create() {
+    pub static ref CONFIG: Config = {
+        match Config::load() {
             Ok(v) => v,
-            Err(_) => {
+            Err(e) => {
+                log::error!("{}", e);
+
                 let cfg = Config {
                     ip: (127,0,0,1),
                     port: 8000,
@@ -34,29 +37,32 @@ lazy_static! {
 pub fn ip() -> (u8, u8, u8, u8) {
     CONFIG.ip()
 }
-pub fn port() -> u16 {
+pub fn port() -> i64 {
     CONFIG.port()
 }
-pub fn ssl_enabled() -> bool {
-    CONFIG.ssl_enabled()
-}
-pub fn ssl_key() -> String {
-    CONFIG.ssl_key()
-}
-pub fn ssl_cert() -> String {
-    CONFIG.ssl_cert()
-}
+// pub fn ssl_enabled() -> bool {
+//     CONFIG.ssl_enabled()
+// }
+// pub fn ssl_key() -> String {
+//     CONFIG.ssl_key()
+// }
+// pub fn ssl_cert() -> String {
+//     CONFIG.ssl_cert()
+// }
 pub fn image_path() -> String {
     CONFIG.image_path()
 }
 pub fn jpg_quality() -> u8 {
     CONFIG.jpg_quality()
 }
-pub fn address() -> SocketAddrV4 {
-    SocketAddrV4::new(Ipv4Addr::new(ip().0, ip().1, ip().2, ip().3), port())
-}
+// pub fn address() -> SocketAddrV4 {
+//     SocketAddrV4::new(Ipv4Addr::new(ip().0, ip().1, ip().2, ip().3), port())
+// }
 pub fn base_address() -> String {
     CONFIG.base_address()
+}
+pub fn address_as_str() -> String {
+    format!("{}.{}.{}.{}:{}", ip().0, ip().1, ip().2, ip().3, port())
 }
 
 fn create_new_config_file(config: &Config) -> Result<(), String> {
@@ -76,7 +82,7 @@ fn create_new_config_file(config: &Config) -> Result<(), String> {
 #[derive(Debug)]
 pub struct Config {
     ip: (u8, u8, u8, u8),
-    port: u16,
+    port: i64,
     ssl_enabled: bool,
     ssl_key: String,
     ssl_cert: String,
@@ -86,7 +92,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn create() -> Result<Self, String> {
+    pub fn load() -> Result<Self, String> {
         let raw_str = match fs::read_to_string("./config.json") {
             Ok(s) => s,
             Err(e) => return Err(format!("Cannot read config file --- {:?}", e))
@@ -159,13 +165,19 @@ impl Config {
         Err("Cannot parse IP from Configuration file.".to_owned())
     }
 
-    fn parse_port(e: &Map<String, Value>) -> Result<u16, String> {
+    fn parse_port(e: &Map<String, Value>) -> Result<i64, String> {
         if let Some(v) = e.get("port") {
-            if let Some(p) = v.as_u64() {
-                return Ok(p as u16)
+            if let Some(p) = v.as_str() {
+                let i = match p.parse::<i64>() {
+                    Ok(p_i) => p_i,
+                    Err(e) => {
+                        log::error!("{}", e);
+                        return Err("Cannot parse Port in Configuration file.".to_owned())
+                    }
+                };
+                return Ok(i)
             }
         }
-
         Err("Cannot parse Port in Configuration file.".to_owned())
     }
 
@@ -246,18 +258,18 @@ impl Config {
     pub fn ip(&self) -> (u8, u8, u8, u8) {
         self.ip
     }
-    pub fn port(&self) -> u16 {
+    pub fn port(&self) -> i64 {
         self.port
     }
-    pub fn ssl_enabled(&self) -> bool {
-        self.ssl_enabled
-    }
-    pub fn ssl_key(&self) -> String {
-        self.ssl_key.clone()
-    }
-    pub fn ssl_cert(&self) -> String {
-        self.ssl_cert.clone()
-    }
+    // pub fn ssl_enabled(&self) -> bool {
+    //     self.ssl_enabled
+    // }
+    // pub fn ssl_key(&self) -> String {
+    //     self.ssl_key.clone()
+    // }
+    // pub fn ssl_cert(&self) -> String {
+    //     self.ssl_cert.clone()
+    // }
     pub fn image_path(&self) -> String {
         self.image_path.clone()
     }
@@ -288,27 +300,5 @@ impl Config {
     }},
     \"image_path\": \"{}\"
 }}", ip_str, self.port, self.ssl_enabled, self.ssl_key, self.ssl_cert, self.image_path)
-    }
-}
-
-
-#[cfg(test)]
-mod config_tests {
-    use super::*;
-
-    #[test]
-    fn test_config_create() {
-        match Config::create() {
-            Ok(v) => println!("{:#?}", v),
-            Err(e) => {
-                eprintln!("{:#?}", e);
-                panic!(e)
-            }
-        }
-    }
-
-    #[test]
-    fn test_lazy_static_config() {
-        println!("{:?}", super::ip());
     }
 }

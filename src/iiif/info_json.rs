@@ -1,7 +1,7 @@
 use serde::{Serialize};
-use super::parsing_error::ErrorReturnType;
-use std::path::Path;
+use crate::wif_error::WifError;
 use crate::config;
+use super::img_info::ImgView;
 
 #[derive(Debug, Serialize)]
 pub struct IIIFInfo {
@@ -17,20 +17,16 @@ pub struct IIIFInfo {
 }
 
 impl IIIFInfo {
-    pub fn for_img(img_path: &str, identifier: &str) -> Result<String, ErrorReturnType> {
-        if !Path::new(img_path).exists() {
-            return Err(ErrorReturnType::NotFound("File not found".to_owned()))
-        }
-
-        let dimensions = Self::get_img_info(img_path)?;
+    pub fn for_img(img: &ImgView) -> Result<String, WifError> {
+        // let dimensions = Self::get_img_info(&img.filepath)?;
 
         let info = IIIFInfo {
-            id: format!("{}/iiif/{}", config::base_address(), identifier),
+            id: format!("{}/iiif/{}", config::base_address(), &img.identifier),
             protocol: "http://iiif.io/api/image".to_owned(),
             profile: "level1".to_owned(),
-            width: dimensions.0,
-            height: dimensions.1,
-            max_area: dimensions.0 as u64 * dimensions.1 as u64 * 10,
+            width: img.dimensions.0,
+            height: img.dimensions.1,
+            max_area: img.dimensions.0 as u64 * img.dimensions.1 as u64 * 10,
             preferred_formats: vec![
                 "tga".to_owned(),
                 "png".to_owned(),
@@ -63,12 +59,5 @@ impl IIIFInfo {
 
     fn jsonify(&self) -> String {
         format!("\"id\":\"{}\",\"type\":\"ImageService3\",\"protocol\":\"{}\",\"profile\":\"{}\",\"width\":{},\"height\":{},\"maxArea\":{},\"preferredFormats\":{:?},\"extraFeatures\":{:?},\"extraQualities\":{:?}", self.id, self.protocol,self.profile,self.width,self.height,self.max_area,self.preferred_formats,self.extra_features,self.extra_qualities)
-    }
-
-    fn get_img_info(img_path: &str) -> Result<(u32, u32), ErrorReturnType> {
-        match image::open(img_path) {
-            Ok(v) => Ok(v.to_rgb16().dimensions()),
-            Err(e) => Err(ErrorReturnType::InternalError(format!("{:?}", e)))
-        }
     }
 }
