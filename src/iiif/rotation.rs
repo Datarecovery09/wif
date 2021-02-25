@@ -5,8 +5,8 @@ use crate::wif_error::WifError;
 
 #[derive(Debug)]
 pub struct EPicRotation {
-    rotation: u32,
-    mirrored: bool
+    pub rotation: u32,
+    pub mirrored: bool
 }
 
 pub fn mutate_image_rotation(rotation: &EPicRotation, img: &mut DynamicImage) -> Result<(), WifError> {

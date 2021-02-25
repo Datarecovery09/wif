@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
-use image::ImageOutputFormat;
+use image::{ImageFormat, ImageOutputFormat};
 use log::info;
 use pretty_env_logger;
 
-use tide::{Request, Response, StatusCode, http::mime, utils::After};
+use tide::{Body, Request, Response, StatusCode, http::mime, utils::After};
 
 mod wif_error;
 use wif_error::WifError;
@@ -44,6 +44,9 @@ async fn main() -> tide::Result<()> {
     app.at("/").get(|_| async {
         Ok("Welcome at Wif! :-)")
     });
+    app.at("/favicon.ico").get(|_| async {
+        Ok(Body::from_file("./favicon.ico").await?)
+    });
     app.at("/iiif/:identifier").get(redirect_info_json);
     app.at("/iiif/:identifier/info.json").get(info_json);
     app.at("/iiif/:identifier/:region/:size/:rotation/:quality").get(show_img);
@@ -53,12 +56,18 @@ async fn main() -> tide::Result<()> {
 }
 
 async fn show_img(req: Request<()>) -> tide::Result<Response> {
-    let img_path = req.param("identifier")?;
-    let img_info = ImgView::for_identifier(img_path)?;
+    let img_identifier = req.param("identifier")?;
+    
+    let img_info = ImgView::for_identifier(img_identifier)?;
     let region = EPicRegion::from_str(req.param("region")?)?;
     let size = EPicSize::from_str(req.param("size")?)?;
     let rotation = EPicRotation::from_str(req.param("rotation")?)?;
     let mut quality = EPicQuality::from_str(req.param("quality")?)?;
+
+    match try_stream_unmodified(&img_info, &region, &size, &rotation, &quality).await {
+        Some(v) => return Ok(v),
+        None => ()
+    }
 
     let mut img = region.from_file(&img_info.filepath)?;
     iiif::size::mutate_image_size(&size, &mut img)?;
@@ -98,4 +107,52 @@ async fn info_json(req: Request<()>) -> tide::Result<Response> {
     res.set_content_type(mime::JSON);
     res.set_body(info_json);
     Ok(res)
+}
+
+async fn try_stream_unmodified(img_view: &ImgView, region: &EPicRegion, size: &EPicSize, rotation: &EPicRotation, quality: &EPicQuality) -> Option<Response> {
+    match region {
+        EPicRegion::Full => (),
+        _ => return None
+    }
+
+    match size {
+        EPicSize::Max => (),
+        _ => return None
+    }
+
+    if rotation.rotation != 0 || rotation.mirrored {
+        return None
+    }
+
+    let mime;
+    match quality {
+        EPicQuality::Default(f) | EPicQuality::Color(f) => {
+            match f {
+                ImageOutputFormat::Jpeg(_) => {
+                    if img_view.format == ImageFormat::Jpeg {
+                        mime = mime::JPEG;
+                    } else {return None}
+                },
+                ImageOutputFormat::Png => {
+                    if img_view.format == ImageFormat::Png {
+                        mime = mime::PNG;
+                    } else {return None}
+                }
+                _ => return None
+            }
+        },
+        _ => return None
+    }
+
+    let body = match Body::from_file(&img_view.filepath).await {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("Error --- {:?}", e);
+            return None
+        }
+    };
+    let mut early_resp = Response::new(StatusCode::Ok);
+    early_resp.set_content_type(mime);
+    early_resp.set_body(body);
+    Some(early_resp)
 }

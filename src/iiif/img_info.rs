@@ -15,7 +15,6 @@ lazy_static! {
     ];
 }
 
-
 #[derive(Debug)]
 pub struct ImgView {
     pub identifier: String,
