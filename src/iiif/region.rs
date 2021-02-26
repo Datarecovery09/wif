@@ -1,6 +1,7 @@
 use std::str::FromStr;
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, ImageBuffer};
 use crate::wif_error::WifError;
+use super::img_info::{ImgSection, ImgView, Rect};
 
 #[derive(Debug)]
 pub enum EPicRegion {
@@ -122,8 +123,20 @@ impl FromStr for EPicRegion {
 }
 
 impl EPicRegion {
-    pub fn from_file(&self, path: &str) -> Result<DynamicImage, WifError> {
-        let mut dyn_img = match image::open(path) {
+    pub fn from_file(&self, img_view: &ImgView) -> Result<DynamicImage, WifError> {
+        match img_view.format {
+            image::ImageFormat::Png => {
+                match self.try_get_from_png(img_view) {
+                    Some(v) => {
+                        return Ok(v)
+                    },
+                    None => ()
+                }
+            },
+            _ => ()
+        }
+
+        let mut dyn_img = match image::open(&img_view.filepath) {
             Ok(v) => v,
             Err(e) => return Err(WifError::internal_error(format!("{:?}", e)))
         };
@@ -206,4 +219,142 @@ impl EPicRegion {
         (true, xp, yp, wp, hp)
     }
     
+
+    fn try_get_from_png(&self, img_view: &ImgView) -> Option<DynamicImage> {
+        let mut section: Option<ImgSection> = None;
+        match self {
+            EPicRegion::Square => {
+                if img_view.width() > img_view.height() {
+                    section = Some(ImgSection {
+                        x: img_view.height() /2,
+                        y: 0,
+                        dimensions: Rect {
+                            width: img_view.height(),
+                            height: img_view.height()
+                        }
+                    });
+                } else if img_view.width() == img_view.height() {
+                    return None
+                } else {
+                    section = Some(ImgSection {
+                        x: 0,
+                        y: img_view.width() /2,
+                        dimensions: Rect {
+                            width: img_view.width(),
+                            height: img_view.width()
+                        }
+                    });
+                }
+            },
+
+            EPicRegion::Reg {x, y, w, h} => {
+                let new_w = if w + x > img_view.width() as f32 {
+                    img_view.width() - x.round() as u32
+                } else { w.round() as u32 };
+                let new_h = if h + y > img_view.height() as f32 {
+                    img_view.height() - y.round() as u32
+                } else { h.round() as u32 };
+                section = Some(ImgSection {
+                    x: x.round() as u32,
+                    y: y.round() as u32,
+                    dimensions: Rect {
+                        width: new_w,
+                        height: new_h
+                    }
+                });
+            },
+
+            EPicRegion::RegPerc { x, y, w, h } => {
+                let new_w = if w + x > img_view.width() as f32 {
+                    img_view.width()
+                } else { w.round() as u32 };
+                let new_h = if h + y > img_view.height() as f32 {
+                    img_view.height()
+                } else { h.round() as u32 };
+                section = Some(ImgSection {
+                    x: x.round() as u32,
+                    y: y.round() as u32,
+                    dimensions: Rect {
+                        width: new_w,
+                        height: new_h
+                    }
+                });
+            }
+
+            _ => ()
+        }
+
+        if let Some(s) = section {
+            self.read_png_section(&img_view.filepath, s)
+        } else {
+            None
+        }
+    }
+
+    fn read_png_section(&self, filepath: &str, section: ImgSection) -> Option<DynamicImage> {
+        let f = match std::fs::File::open(filepath) {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{}", e);
+                return None
+            }
+        };
+
+        let decoder = png::Decoder::new(f);
+        let (info, mut reader) = match decoder.read_info() {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{}", e);
+                return None
+            }
+        };
+
+        let color_multi = match info.color_type {
+            png::ColorType::RGB => 3,
+            png::ColorType::RGBA => 4,
+            png::ColorType::Grayscale => 1,
+            png::ColorType::GrayscaleAlpha => 2,
+            png::ColorType::Indexed => 1
+        };
+        let bit_multi = match info.bit_depth {
+            png::BitDepth::Eight => 1,
+            png::BitDepth::Sixteen => 2,
+            _ => 1
+        };
+
+        let pixel_size = bit_multi * color_multi;
+
+        let buffer_size = (section.width() * section.height() * pixel_size) as usize;
+        let mut buf: Vec<u8> = vec![0; buffer_size];
+
+        let mut len = 0;
+        for n in 0..(section.height() + section.y) {
+            match reader.next_row() {
+                Ok(r) => {
+                    if let Some(row) = r {
+                        if n < section.y { continue }
+                        for i in 0..(section.width() * pixel_size + section.x) as usize {
+                            if i < section.x as usize { continue }
+                            if let Some(b) = row.get(i) {
+                                buf[len] = *b;
+                                len += 1;
+                            }
+                        }
+                    }
+                },
+                Err(e) => {
+                    log::error!("{}", e);
+                    return None
+                }
+            }
+        }
+
+        match info.color_type {
+            png::ColorType::RGB => Some(DynamicImage::ImageRgb8(ImageBuffer::from_raw(section.width(), section.height(), buf)?)),
+            png::ColorType::RGBA => Some(DynamicImage::ImageRgba8(ImageBuffer::from_raw(section.width(), section.height(), buf)?)),
+            png::ColorType::Grayscale => Some(DynamicImage::ImageLuma8(ImageBuffer::from_raw(section.width(), section.height(), buf)?)),
+            png::ColorType::GrayscaleAlpha => Some(DynamicImage::ImageLumaA8(ImageBuffer::from_raw(section.width(), section.height(), buf)?)),
+            _ => None
+        }
+    }
 }

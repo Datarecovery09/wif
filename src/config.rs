@@ -17,7 +17,8 @@ lazy_static! {
                     ssl_cert: "".to_owned(),
                     image_path: "./files".to_owned(),
                     jpg_quality: 80,
-                    base_address: "http://localhost".to_owned()
+                    base_address: "http://localhost".to_owned(),
+                    max_area: 16777216
                 };
 
                 match create_new_config_file(&cfg) {
@@ -55,6 +56,9 @@ pub fn image_path() -> String {
 pub fn jpg_quality() -> u8 {
     CONFIG.jpg_quality()
 }
+pub fn max_area() -> u64 {
+    CONFIG.max_area()
+}
 // pub fn address() -> SocketAddrV4 {
 //     SocketAddrV4::new(Ipv4Addr::new(ip().0, ip().1, ip().2, ip().3), port())
 // }
@@ -88,7 +92,8 @@ pub struct Config {
     ssl_cert: String,
     image_path: String,
     jpg_quality: u8,
-    base_address: String
+    base_address: String,
+    max_area: u64
 }
 
 impl Config {
@@ -111,6 +116,7 @@ impl Config {
         let image_path = Self::parse_img_path(&config)?;
         let jpg_quality = Self::parse_jpg_quality(&config)?;
         let base_address = Self::parse_base_address(&config)?;
+        let max_area = Self::parse_max_area(&config)?;
 
         Ok(Config {
             ip,
@@ -120,7 +126,8 @@ impl Config {
             ssl_cert,
             image_path,
             jpg_quality,
-            base_address
+            base_address,
+            max_area
         })
     }
 
@@ -235,6 +242,16 @@ impl Config {
         Err("Cannot parse JPG Quality in Configuration file.".to_owned())
     }
 
+    fn parse_max_area(e: &Map<String, Value>) -> Result<u64, String> {
+        if let Some(v) = e.get("max_area") {
+            if let Some(p) = v.as_u64() {
+                return Ok(p)
+            }
+        }
+
+        Err("Cannot parse JPG Quality in Configuration file.".to_owned())
+    }
+
     fn parse_base_address(e: &Map<String, Value>) -> Result<String, String> {
         if let Some(v) = e.get("base_address") {
             if let Some(s) = v.as_str() {
@@ -268,6 +285,9 @@ impl Config {
     pub fn jpg_quality(&self) -> u8 {
         self.jpg_quality
     }
+    pub fn max_area(&self) -> u64 {
+        self.max_area
+    }
     pub fn base_address(&self) -> String {
         self.base_address.clone()
     }
@@ -291,7 +311,8 @@ impl Config {
         \"cert\": \"{}\"
     }},
     \"image_path\": \"{}\",
-    \"jpg_quality\": {}
-}}", ip_str, self.port, self.ssl_enabled, self.ssl_key, self.ssl_cert, self.image_path, self.jpg_quality)
+    \"jpg_quality\": {},
+    \"max_area\": {}
+}}", ip_str, self.port, self.ssl_enabled, self.ssl_key, self.ssl_cert, self.image_path, self.jpg_quality, self.max_area)
     }
 }

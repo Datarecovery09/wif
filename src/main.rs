@@ -69,7 +69,7 @@ async fn show_img(req: Request<()>) -> tide::Result<Response> {
         None => ()
     }
 
-    let mut img = region.from_file(&img_info.filepath)?;
+    let mut img = region.from_file(&img_info)?;
     iiif::size::mutate_image_size(&size, &mut img)?;
     iiif::rotation::mutate_image_rotation(&rotation, &mut img)?;
     let buffer = iiif::quality::mutate_image_quality(&mut quality, &mut img)?;

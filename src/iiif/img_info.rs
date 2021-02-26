@@ -8,11 +8,34 @@ use jpeg_decoder;
 use crate::{config, wif_error::WifError};
 
 lazy_static! {
-    static ref IIIF_EXTENSIONS: [(&'static str, ImageFormat); 3] = [
-        ("jpg", ImageFormat::Jpeg),
+    static ref IIIF_EXTENSIONS: [(&'static str, ImageFormat); 5] = [
         ("png", ImageFormat::Png),
+        ("tif", ImageFormat::Tiff),
+        ("tiff", ImageFormat::Tiff),
+        ("jpg", ImageFormat::Jpeg),
         ("bmp", ImageFormat::Bmp)
     ];
+}
+
+#[derive(Debug)]
+pub struct Rect {
+    pub width: u32,
+    pub height: u32
+}
+
+#[derive(Debug)]
+pub struct ImgSection {
+    pub x: u32,
+    pub y: u32,
+    pub dimensions: Rect
+}
+impl ImgSection {
+    pub fn width(&self) -> u32 {
+        self.dimensions.width
+    }
+    pub fn height(&self) -> u32 {
+        self.dimensions.height
+    }
 }
 
 #[derive(Debug)]
@@ -20,7 +43,7 @@ pub struct ImgView {
     pub identifier: String,
     pub filepath: String,
     pub format: ImageFormat,
-    pub dimensions: (u32, u32)
+    pub dimensions: Rect
 }
 impl ImgView {
     pub fn for_identifier(identifier: &str) -> Result<Self, WifError> {
@@ -51,7 +74,7 @@ impl ImgView {
         Err(WifError::not_found(format!("{} not found", identifier)))
     }
 
-    fn get_dimensions(path: &str, format: &ImageFormat) -> Result<(u32, u32), WifError> {
+    fn get_dimensions(path: &str, format: &ImageFormat) -> Result<Rect, WifError> {
         let reader = match File::open(path) {
             Ok(f) => f,
             Err(e) => {
@@ -65,7 +88,10 @@ impl ImgView {
                 let decoder = png::Decoder::new(reader);
                 match decoder.read_info() {
                     Ok(i) => {
-                        Ok((i.0.width, i.0.height))
+                        Ok(Rect {
+                            width: i.0.width,
+                            height: i.0.height
+                        })
                     },
                     Err(e) => {
                         log::error!("{:?}", e);
@@ -78,7 +104,10 @@ impl ImgView {
                 match decoder.read_info() {
                     Ok(_) => {
                         match decoder.info() {
-                            Some(i) => Ok((i.width as u32, i.height as u32)),
+                            Some(i) => Ok(Rect {
+                                width: i.width as u32,
+                                height: i.height as u32
+                            }),
                             None => Err(WifError::internal_error("Internal Server Error".to_owned()))
                         }
                     },
@@ -90,5 +119,12 @@ impl ImgView {
             },
             _ => Err(WifError::internal_error("Internal Server Error".to_owned()))
         }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.dimensions.width
+    }
+    pub fn height(&self) -> u32 {
+        self.dimensions.height
     }
 }

@@ -11,7 +11,9 @@
         "key": "",
         "cert": ""
     },
+    "base_address": "http://localhost",
+
     "image_path": "./files",
     "jpg_quality": 80,
-    "base_address": "http://localhost"
+    "max_area": 16777216
 }

@@ -24,9 +24,9 @@ impl IIIFInfo {
             id: format!("{}/iiif/{}", config::base_address(), &img.identifier),
             protocol: "http://iiif.io/api/image".to_owned(),
             profile: "level1".to_owned(),
-            width: img.dimensions.0,
-            height: img.dimensions.1,
-            max_area: img.dimensions.0 as u64 * img.dimensions.1 as u64 * 10,
+            width: img.dimensions.width,
+            height: img.dimensions.height,
+            max_area: config::max_area(),
             preferred_formats: vec![
                 "tga".to_owned(),
                 "png".to_owned(),
